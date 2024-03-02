@@ -1,0 +1,354 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ncurses.h>
+#include <time.h>
+
+#define MAX_USERS 10
+#define MAX_PROJECTS_PER_USER 10
+#define MAX_SAVING_GOALS 5
+#define NUM_NOTIFICATIONS 50
+
+// Define color pairs
+#define COLOR_TITLE 1
+#define COLOR_MENU 2
+#define COLOR_PROMPT 3
+#define COLOR_SUCCESS 4
+#define COLOR_ERROR 5
+#define COLOR_NOTIFICATION 6
+
+typedef struct {
+    char name[50];
+    float amount;
+    time_t deadline;
+    int completed;
+} SavingsProject;
+
+typedef struct {
+    char name[50];
+    float amount;
+} SavingGoal;
+
+typedef struct {
+    char username[50];
+    char password[50];
+    SavingsProject projects[MAX_PROJECTS_PER_USER];
+    int projectCount;
+    SavingGoal goals[MAX_SAVING_GOALS];
+    int goalCount;
+    float totalSavings;
+} User;
+
+User users[MAX_USERS];
+int userCount = 0;
+
+char *notifications[NUM_NOTIFICATIONS] = {
+    "Keep up the great work on your savings!",
+    "Small savings today, big rewards tomorrow!",
+    "Every penny saved is a step closer to your goals!",
+    "Your financial goals are within reach!",
+    "Don't stop saving! You're doing great!",
+    "Your dedication to saving is admirable!",
+    "Saving a little each day adds up over time!",
+    "Stay committed to your savings plan!",
+    "Your future self will thank you for saving today!",
+    "You're making progress towards your goals!",
+    // Add more encouraging messages here...
+};
+
+// Function to initialize colors
+void initColors() {
+    start_color();
+    init_pair(COLOR_TITLE, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(COLOR_MENU, COLOR_GREEN, COLOR_BLACK);
+    init_pair(COLOR_PROMPT, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(COLOR_SUCCESS, COLOR_CYAN, COLOR_BLACK);
+    init_pair(COLOR_ERROR, COLOR_RED, COLOR_BLACK);
+    init_pair(COLOR_NOTIFICATION, COLOR_MAGENTA, COLOR_BLACK);
+}
+
+// Function to display the title
+void displayTitle() {
+    attron(COLOR_PAIR(COLOR_TITLE));
+    printw("============================================\n");
+    printw("           Welcome to Coin CollectHer        \n");
+    printw("============================================\n\n");
+    attroff(COLOR_PAIR(COLOR_TITLE));
+}
+
+// Function to display menu options
+void displayMenu() {
+    attron(COLOR_PAIR(COLOR_MENU));
+    printw("Menu:\n");
+    printw("1. Create User\n");
+    printw("2. Log In\n");
+    printw("3. Add Project\n");
+    printw("4. Contribute to Project\n");
+    printw("5. Add Saving Goal\n");
+    printw("6. Show Project Statistics\n");
+    printw("7. Show Savings Goals\n");
+    printw("8. Generate Random Savings Challenge\n");
+    printw("9. Exit\n\n");
+    attroff(COLOR_PAIR(COLOR_MENU));
+}
+
+// Function to create a user
+void createUser() {
+    if (userCount >= MAX_USERS) {
+        attron(COLOR_PAIR(COLOR_ERROR));
+        printw("Maximum number of users reached.\n");
+        attroff(COLOR_PAIR(COLOR_ERROR));
+        return;
+    }
+
+    printw("Enter username: ");
+    scanw("%s", users[userCount].username);
+    printw("Enter password: ");
+    scanw("%s", users[userCount].password);
+
+    users[userCount].projectCount = 0;
+    users[userCount].goalCount = 0;
+    users[userCount].totalSavings = 0;
+
+    userCount++;
+
+    attron(COLOR_PAIR(COLOR_SUCCESS));
+    printw("User created successfully.\n");
+    attroff(COLOR_PAIR(COLOR_SUCCESS));
+}
+
+// Function to find user by username
+int findUser(const char *username) {
+    for (int i = 0; i < userCount; i++) {
+        if (strcmp(users[i].username, username) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Function to log in
+int login() {
+    char username[50];
+    char password[50];
+
+    printw("Enter username: ");
+    scanw("%s", username);
+    printw("Enter password: ");
+    scanw("%s", password);
+
+    int index = findUser(username);
+    if (index != -1 && strcmp(users[index].password, password) == 0) {
+        return index;
+    }
+
+    return -1;
+}
+
+// Function to add a project
+void addProject(User *user) {
+    if (user->projectCount >= MAX_PROJECTS_PER_USER) {
+        attron(COLOR_PAIR(COLOR_ERROR));
+        printw("Maximum number of projects reached.\n");
+        attroff(COLOR_PAIR(COLOR_ERROR));
+        return;
+    }
+
+    printw("Enter project name: ");
+    scanw("%s", user->projects[user->projectCount].name);
+    printw("Enter initial amount for the project: ");
+    scanw("%f", &user->projects[user->projectCount].amount);
+    printw("Enter deadline for the project (in seconds since epoch): ");
+    scanw("%ld", &user->projects[user->projectCount].deadline);
+    user->projects[user->projectCount].completed = 0;
+    user->projectCount++;
+
+    attron(COLOR_PAIR(COLOR_SUCCESS));
+    printw("Project added successfully.\n");
+    attroff(COLOR_PAIR(COLOR_SUCCESS));
+}
+
+// Function to contribute to a project
+void contributeToProject(User *user) {
+    char projectName[50];
+    float amount;
+
+    printw("Enter project name: ");
+    scanw("%s", projectName);
+    printw("Enter contribution amount: ");
+    scanw("%f", &amount);
+
+    for (int i = 0; i < user->projectCount; i++) {
+        if (strcmp(projectName, user->projects[i].name) == 0) {
+            user->projects[i].amount += amount;
+            user->totalSavings += amount;
+
+            attron(COLOR_PAIR(COLOR_SUCCESS));
+            printw("Contribution to project successful.\n");
+            attroff(COLOR_PAIR(COLOR_SUCCESS));
+            return;
+        }
+    }
+
+    attron(COLOR_PAIR(COLOR_ERROR));
+    printw("Project not found.\n");
+    attroff(COLOR_PAIR(COLOR_ERROR));
+}
+
+// Function to add a saving goal
+void addSavingGoal(User *user) {
+    if (user->goalCount >= MAX_SAVING_GOALS) {
+        attron(COLOR_PAIR(COLOR_ERROR));
+        printw("Maximum number of saving goals reached.\n");
+        attroff(COLOR_PAIR(COLOR_ERROR));
+        return;
+    }
+
+    printw("Enter goal name: ");
+    scanw("%s", user->goals[user->goalCount].name);
+    printw("Enter amount for the goal: ");
+    scanw("%f", &user->goals[user->goalCount].amount);
+    user->goalCount++;
+
+    attron(COLOR_PAIR(COLOR_SUCCESS));
+    printw("Saving goal added successfully.\n");
+    attroff(COLOR_PAIR(COLOR_SUCCESS));
+}
+
+// Function to generate and display random savings challenge
+void generateSavingsChallenge() {
+    srand(time(NULL));
+    int randomIndex = rand() % NUM_NOTIFICATIONS;
+
+    attron(COLOR_PAIR(COLOR_NOTIFICATION));
+    printw("Today's Savings Challenge: %s\n", notifications[randomIndex]);
+    attroff(COLOR_PAIR(COLOR_NOTIFICATION));
+}
+
+// Function to show project statistics
+void showProjectStatistics(User *user) {
+    float totalSavings = 0;
+
+    attron(COLOR_PAIR(COLOR_MENU));
+    printw("Statistics for User '%s' Projects:\n", user->username);
+    attroff(COLOR_PAIR(COLOR_MENU));
+
+    for (int i = 0; i < user->projectCount; i++) {
+        printw("%d. %s: %.2f (Deadline: %ld)\n", i + 1, user->projects[i].name, user->projects[i].amount, user->projects[i].deadline);
+        totalSavings += user->projects[i].amount;
+    }
+
+    attron(COLOR_PAIR(COLOR_MENU));
+    printw("Total Savings: %.2f\n", user->totalSavings);
+    attroff(COLOR_PAIR(COLOR_MENU));
+}
+
+// Function to show savings goals
+void showSavingsGoals(User *user) {
+    attron(COLOR_PAIR(COLOR_MENU));
+    printw("Savings Goals for User '%s':\n", user->username);
+    attroff(COLOR_PAIR(COLOR_MENU));
+
+    for (int i = 0; i < user->goalCount; i++) {
+        printw("%d. %s: %.2f\n", i + 1, user->goals[i].name, user->goals[i].amount);
+    }
+}
+
+// Function to release allocated memory
+void releaseMemory() {
+    // No dynamic memory allocated in this version
+}
+
+int main() {
+    int choice;
+    int loggedInUserIndex = -1;
+
+    // Initialize ncurses
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    initColors(); // Initialize colors
+
+    // Main program loop
+    while (1) {
+        clear(); // Clear screen
+        displayTitle(); // Display title
+
+        if (loggedInUserIndex == -1) {
+            printw("You are not logged in.\n");
+            printw("1. Create User\n");
+            printw("2. Log In\n");
+            printw("3. Exit\n\n");
+            printw("Enter your choice: ");
+            scanw("%d", &choice);
+
+            switch (choice) {
+                case 1:
+                    createUser();
+                    break;
+                case 2:
+                    loggedInUserIndex = login();
+                    if (loggedInUserIndex == -1) {
+                        attron(COLOR_PAIR(COLOR_ERROR));
+                        printw("Invalid username or password.\n");
+                        attroff(COLOR_PAIR(COLOR_ERROR));
+                    } else {
+                        attron(COLOR_PAIR(COLOR_SUCCESS));
+                        printw("Logged in successfully.\n");
+                        attroff(COLOR_PAIR(COLOR_SUCCESS));
+                    }
+                    break;
+                case 3:
+                    releaseMemory();
+                    endwin();
+                    return 0;
+                default:
+                    attron(COLOR_PAIR(COLOR_ERROR));
+                    printw("Invalid choice. Please try again.\n");
+                    attroff(COLOR_PAIR(COLOR_ERROR));
+            }
+        } else {
+            displayMenu(); // Display menu options
+            printw("Enter your choice: ");
+            scanw("%d", &choice);
+
+            // Perform action based on user choice
+            switch (choice) {
+                case 1:
+                    addProject(&users[loggedInUserIndex]);
+                    break;
+                case 2:
+                    contributeToProject(&users[loggedInUserIndex]);
+                    break;
+                case 3:
+                    addSavingGoal(&users[loggedInUserIndex]);
+                    break;
+                case 4:
+                    showProjectStatistics(&users[loggedInUserIndex]);
+                    break;
+                case 5:
+                    showSavingsGoals(&users[loggedInUserIndex]);
+                    break;
+                case 6:
+                    generateSavingsChallenge();
+                    break;
+                case 7:
+                    loggedInUserIndex = -1;
+                    attron(COLOR_PAIR(COLOR_SUCCESS));
+                    printw("Logged out successfully.\n");
+                    attroff(COLOR_PAIR(COLOR_SUCCESS));
+                    break;
+                default:
+                    attron(COLOR_PAIR(COLOR_ERROR));
+                    printw("Invalid choice. Please try again.\n");
+                    attroff(COLOR_PAIR(COLOR_ERROR));
+            }
+        }
+
+        printw("\nPress any key to continue...");
+        getch(); // Wait for user input
+    }
+
+    return 0;
+}
